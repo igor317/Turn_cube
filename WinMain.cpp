@@ -1,74 +1,74 @@
-#pragma comment(lib, "d3d9.lib")
+﻿#pragma comment(lib, "d3d9.lib")
 #pragma comment(lib, "d3dxof.lib")
 #pragma comment(lib, "d3dx9.lib")
 #pragma comment(lib, "winmm.lib")
 #include <Windows.h>
 #include <d3d9.h>
 #include <d3dx9.h>
-LRESULT CALLBACK fnMessageProcessor(HWND, UINT, WPARAM, LPARAM); // ���������� ���������, ��� ������� ����� ����� �����, �� ��������� ������ ���� ������ �����
-HWND hWnd;				// ���������� ����
-MSG msg;				// ���������� �����������
-WNDCLASSEX wndclass;	// ��������� ����
-IDirect3D9* g_D3D = NULL;				// ����� direct9 (��������)
-IDirect3DDevice9 *g_D3DDevice = NULL;	// ����� ���������� ����������� (����������)
-IDirect3DVertexBuffer9 *g_VB = NULL;	// ����� �����
+LRESULT CALLBACK fnMessageProcessor(HWND, UINT, WPARAM, LPARAM); // Обработчик сообщений, имя функции можно взять любое, но структура должна быть именно такая
+HWND hWnd;				// Дескриптор окна
+MSG msg;				// Дескриптор обработчика
+WNDCLASSEX wndclass;	// Структура окна
+IDirect3D9* g_D3D = NULL;				// Класс direct9 (основной)
+IDirect3DDevice9 *g_D3DDevice = NULL;	// Класс устройства отображения (видеокарты)
+IDirect3DVertexBuffer9 *g_VB = NULL;	// Буфер точек
 typedef struct 
 {
-	FLOAT x, y, z;     // 3� ����������
+	FLOAT x, y, z;     // 3д координаты
 	D3DCOLOR Diffuse;  // Diffuse color component
-} sVertex;	// ��������� ��������
-#define VERTEXFVF (D3DFVF_XYZ | D3DFVF_DIFFUSE) // ����������, ��� ���������� �������
+} sVertex;	// Структура полигона
+#define VERTEXFVF (D3DFVF_XYZ | D3DFVF_DIFFUSE) // Определяем, как отображать полигон
 
 void InitWndClass(HINSTANCE hInstance)
 {
-	wndclass.cbSize = sizeof(WNDCLASSEX);							// ������ ��������� WNDCLASSEX � ������
-	wndclass.style = CS_HREDRAW | CS_VREDRAW;						// ����� ����
-	wndclass.lpfnWndProc = fnMessageProcessor;						// ��������� �� ���������� ���������
-	wndclass.cbClsExtra = 0;										// ����������� ������ ��������� � ������ (�� ��� ����, ��������)
-	wndclass.cbWndExtra = 0;										// ����������� ������ ���� � ������ (��������)
-	wndclass.hInstance = hInstance;									// ���������� ����
-	wndclass.hIcon = LoadIcon(NULL, IDI_APPLICATION);				// ���������� ������ ������: ������ �������� - ���������� �� ������, 
-																		// ������� �������� ������ - ���� NULL, �� ����� ������������ ����������� ������. 
-																		// ������ �������� - ��������� �� ������, ���������� ��� ������
-	wndclass.hCursor = LoadCursor(NULL, IDC_CROSS);					// ���������� ������ ��������� (��������� ����� ��, ��� � � ������)
-	wndclass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);	// ������ ��� // GetStockObject - �������, ������� �������� �����
-	wndclass.lpszMenuName = NULL;									// ��� ������� ����
-	wndclass.lpszClassName = "Window Class";						// ��� ������ ����
-	wndclass.hIconSm = LoadIcon(NULL, IDI_ERROR);					// ������ ������ ����, ��������� hIcon
+	wndclass.cbSize = sizeof(WNDCLASSEX);							// Размер структуры WNDCLASSEX в байтах
+	wndclass.style = CS_HREDRAW | CS_VREDRAW;						// Стиль окна
+	wndclass.lpfnWndProc = fnMessageProcessor;						// Указатель на обработчик сообщений
+	wndclass.cbClsExtra = 0;										// Инзачальный размер структуры в байтах (хз для чего, зануляем)
+	wndclass.cbWndExtra = 0;										// Изначальный размер окна в байтах (зануляем)
+	wndclass.hInstance = hInstance;									// Дескриптор окна
+	wndclass.hIcon = LoadIcon(NULL, IDI_APPLICATION);				// Дескриптор класса значка: Первый параметр - Дескриптор на модуль, 
+																		// который содержит значок - если NULL, то можем использовать стандартные значки. 
+																		// Второй параметр - Указатель на строку, содержащий имя значка
+	wndclass.hCursor = LoadCursor(NULL, IDC_CROSS);					// Дескрипток класса указателя (Параметры такие же, что и у иконки)
+	wndclass.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);	// Задний фон // GetStockObject - функция, которая получает кисть
+	wndclass.lpszMenuName = NULL;									// Имя ресурса меню
+	wndclass.lpszClassName = "Window Class";						// Имя класса окна
+	wndclass.hIconSm = LoadIcon(NULL, IDI_ERROR);					// Значок самого окна, идентично hIcon
 
-	if (RegisterClassEx(&wndclass) == 0)	// ����������� ���� � ������� Windows �������� - ��������� �� ��������� ���, ������������������ ����
+	if (RegisterClassEx(&wndclass) == 0)	// Регистрация окна в системе Windows аргумент - указатель на структуру она, инициализированную выше
 	{
-		exit(1);	// ���� �� ������ ����������������, �������
+		exit(1);	// Если не смогли зарегистрировать, выходим
 	}
 }
 
 void ClassRegister(HINSTANCE hInstance)
 {
-	hWnd = CreateWindowEx	// ������� �������� ����
+	hWnd = CreateWindowEx	// Функция создания окна
 	(
-		WS_EX_OVERLAPPEDWINDOW,	// ����� ����, ������ �� wndclass.style
-		wndclass.lpszClassName,	// ��� ��������� ����, ��������� ����
-		"Cube",			// ����� ��������� ����
-		WS_OVERLAPPEDWINDOW,	// ��������� �������� ��������� ���������� ������ ����
-		0,						// ��������� �� X
-		0,						// ��������� �� Y
-		800,					// ������
-		600,					// ������
-		NULL,					// ��������� �� �������� ���� (HWND)	
-		NULL,					// ��������� �� ���� � ����
-		hInstance,				// ���������� ����
-		NULL					// ���. ������ (������ NULL)
+		WS_EX_OVERLAPPEDWINDOW,	// Стиль окна, похоже на wndclass.style
+		wndclass.lpszClassName,	// Имя структуры окна, описанной выше
+		"Cube",			// Текст заголовка окна
+		WS_OVERLAPPEDWINDOW,	// Позволяет задавать различные комбинации стилей окна
+		0,						// Положение по X
+		0,						// Положение по Y
+		800,					// Ширина
+		600,					// Высота
+		NULL,					// Указатель на родитель окна (HWND)	
+		NULL,					// Указатель на окно с меню
+		hInstance,				// Дескриптор окна
+		NULL					// Доп. данные (Обычно NULL)
 	);
 
 }
 
 BOOL d3dInit()
 {
-	D3DPRESENT_PARAMETERS d3dpp;	// ��������� ������
-	D3DDISPLAYMODE        d3ddm;	// ����� �����������
-	D3DXMATRIX matProj, matView;	// ������� ��������
-	BYTE *Ptr;					// �������� ������ ��� ��������
-	sVertex Verts[24] =			// ������� ����
+	D3DPRESENT_PARAMETERS d3dpp;	// Параметры показа
+	D3DDISPLAYMODE        d3ddm;	// Режим отображения
+	D3DXMATRIX matProj, matView;	// Матрица проекции
+	BYTE *Ptr;					// Выделяем память под полигоны
+	sVertex Verts[24] =			// Вершины куба
 	{
 		{ -100.0f,  100.0f, -100.0f, D3DCOLOR_RGBA(255,255,180,255) },
 		{  100.0f,  100.0f, -100.0f,  D3DCOLOR_RGBA(255,140,255,255) },
@@ -102,63 +102,63 @@ BOOL d3dInit()
 
 	};
 
-	if ((g_D3D = Direct3DCreate9(D3D_SDK_VERSION)) == NULL)	// �������� ���������������� �������� ����� direct9
+	if ((g_D3D = Direct3DCreate9(D3D_SDK_VERSION)) == NULL)	// Пытаемся инициализировать основной класс direct9
 		return FALSE;
-	if (FAILED(g_D3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))	// ����������� ����� �����������
+	if (FAILED(g_D3D->GetAdapterDisplayMode(D3DADAPTER_DEFAULT, &d3ddm)))	// Устанавлием режим отображения
 		return FALSE;
-	ZeroMemory(&d3dpp, sizeof(d3dpp));			// ������ ������
-	d3dpp.Windowed = TRUE;						// ������� �����
+	ZeroMemory(&d3dpp, sizeof(d3dpp));			// Чистим память
+	d3dpp.Windowed = TRUE;						// Оконный режим
 	d3dpp.SwapEffect = D3DSWAPEFFECT_DISCARD;	
 	d3dpp.BackBufferFormat = d3ddm.Format;		
 	d3dpp.EnableAutoDepthStencil = TRUE;
 	d3dpp.AutoDepthStencilFormat = D3DFMT_D16;
 
-	if (FAILED(g_D3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, // �������������� ����� ���������� �����������(����������)
+	if (FAILED(g_D3D->CreateDevice(D3DADAPTER_DEFAULT, D3DDEVTYPE_HAL, hWnd, // Инициализируем класс устройства отображения(видеокарты)
 		D3DCREATE_SOFTWARE_VERTEXPROCESSING,
 		&d3dpp, &g_D3DDevice)))
 		return FALSE;
 
-	g_D3DDevice->SetRenderState(D3DRS_LIGHTING, FALSE);	// ����� ������������
+	g_D3DDevice->SetRenderState(D3DRS_LIGHTING, FALSE);	// Режим визуализации
 	g_D3DDevice->SetRenderState(D3DRS_ZENABLE, TRUE);
 
-	D3DXMatrixPerspectiveFovLH(&matProj, D3DX_PI / 4.0f, 1.33333f, 1.0f, 1000.0f); // ������� ���� ������ ������ (�������� �� �����)
-	g_D3DDevice->SetTransform(D3DTS_PROJECTION, &matProj);		// ������������� ��������� �� ������
+	D3DXMatrixPerspectiveFovLH(&matProj, D3DX_PI / 4.0f, 1.33333f, 1.0f, 1000.0f); // Создаем угол обзора камеры (проекции на экран)
+	g_D3DDevice->SetTransform(D3DTS_PROJECTION, &matProj);		// Устанавливаем положение на экране
 
 	
-	D3DXMatrixLookAtLH(&matView,	// ������� ����� ������
-		&D3DXVECTOR3(0.0f, 0.0f, -500.0f),	// ���������� ����� ���������
-		&D3DXVECTOR3(0.0f, 0.0f, 0.0f),		// ���������� ����
-		&D3DXVECTOR3(0.0f, 1.0f, 0.0f));		// ������� �����������	
+	D3DXMatrixLookAtLH(&matView,	// Создаем точку обзора
+		&D3DXVECTOR3(0.0f, 0.0f, -500.0f),	// Координаты точки просмотра
+		&D3DXVECTOR3(0.0f, 0.0f, 0.0f),		// Координаты цели
+		&D3DXVECTOR3(0.0f, 1.0f, 0.0f));		// Верхнее направление	
 
 	g_D3DDevice->SetTransform(D3DTS_VIEW, &matView);
 
 
-	g_D3DDevice->CreateVertexBuffer(sizeof(sVertex) * 24, 0, // ������� ����� ����� (24 - ���������� ������)
+	g_D3DDevice->CreateVertexBuffer(sizeof(sVertex) * 24, 0, // Создаем буфер точек (24 - количество вершин)
 		VERTEXFVF, D3DPOOL_DEFAULT,
 		&g_VB, NULL);
-	g_VB->Lock(0, 0, (void**)&Ptr, 0);	// ��������� ������������ ��������������� ������
-	memcpy(Ptr, Verts, sizeof(Verts));	// ������ � ��� ������
-	g_VB->Unlock();						// ��������� �� ������������
+	g_VB->Lock(0, 0, (void**)&Ptr, 0);	// Запрещаем использовать забронированную память
+	memcpy(Ptr, Verts, sizeof(Verts));	// Вносим в нее данные
+	g_VB->Unlock();						// Разрешаем ее использовать
 
 	return TRUE;
 }
 
-BOOL DrawFrame()	// ��������� �����
+BOOL DrawFrame()	// Отрисовка кадра
 {
-	D3DXMATRIX matWorld;		// ���������� ������� ���������
+	D3DXMATRIX matWorld;		// Глобальная система координат
 	g_D3DDevice->Clear(0, NULL, D3DCLEAR_TARGET | D3DCLEAR_ZBUFFER,
-		D3DCOLOR_RGBA(0, 64, 128, 255), 1.0f, 0);	// ������ ��� ��� �����
+		D3DCOLOR_RGBA(0, 64, 128, 255), 1.0f, 0);	// Чистим все что можно
 
-	if (SUCCEEDED(g_D3DDevice->BeginScene())) {	// �������� ������������ �����
-		D3DXMatrixRotationAxis(&matWorld, &D3DXVECTOR3(1.0f, -1.0f, 1.0f), (float)timeGetTime() / 500.0f);		// ������� ���
+	if (SUCCEEDED(g_D3DDevice->BeginScene())) {	// Начинаем визуализацию кадра
+		D3DXMatrixRotationAxis(&matWorld, &D3DXVECTOR3(1.0f, -1.0f, 1.0f), (float)timeGetTime() / 500.0f);		// Вращаем куб
 		//D3DXMatrixTranslation(&matWorld, x, 0, 0);
-		g_D3DDevice->SetTransform(D3DTS_WORLD, &matWorld); // ������ �������
+		g_D3DDevice->SetTransform(D3DTS_WORLD, &matWorld); // Задаем позицию
 
 
-		g_D3DDevice->SetStreamSource(0, g_VB, 0, sizeof(sVertex)); // ������������� ������������
-		g_D3DDevice->SetFVF(VERTEXFVF);	// ������������� ����� ����������� ���������
+		g_D3DDevice->SetStreamSource(0, g_VB, 0, sizeof(sVertex)); // Устанавливаем визуализацию
+		g_D3DDevice->SetFVF(VERTEXFVF);	// Устанавливаем режим отображения полигонов
 
-		// ������ ���
+		// Рисуем куб
 		g_D3DDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0,22);
 		/*g_D3DDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 0, 2);
 		g_D3DDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 4, 2);
@@ -167,72 +167,72 @@ BOOL DrawFrame()	// ��������� �����
 		g_D3DDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 16, 2);
 		g_D3DDevice->DrawPrimitive(D3DPT_TRIANGLESTRIP, 20, 2);*/
 
-		g_D3DDevice->EndScene();	// ��������� ������������
+		g_D3DDevice->EndScene();	// Завершаем визуализацию
 	}
 
-	g_D3DDevice->Present(NULL, NULL, NULL, NULL); // ��������� �� 2-�� ������ �� �������� �����
+	g_D3DDevice->Present(NULL, NULL, NULL, NULL); // Переносим из 2-го буфера на основной экран
 
 	return TRUE;
 }
 
 BOOL DoShutdown()
 {
-	// ������ ����� �����
+	// Чистим буфер точек
 	if (g_VB != NULL)
 		g_VB->Release();
 
-	// ������ ����� ����������
+	// Чистим класс устройства
 	if (g_D3DDevice != NULL)
 		g_D3DDevice->Release();
 
-	// ������ ����� directx
+	// Чистим класс directx
 	if (g_D3D != NULL)
 		g_D3D->Release();
 
 	return TRUE;
 }
 
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) // ����� �����
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, PSTR szCmdLine, int iCmdShow) // Точка входа
 {
 
-	InitWndClass(hInstance); // ������������� ��������� ����
-	ClassRegister(hInstance);	// �������� ����
+	InitWndClass(hInstance); // Инициализация структуры окна
+	ClassRegister(hInstance);	// Создание окна
 
-	ShowWindow(hWnd, iCmdShow);	// �������� ���� (������ �������� - ���������� ����, 
-									// ������ - �����, ������������ ��� ����� ������������(������ � ������, ������� � �.�.))
+	ShowWindow(hWnd, iCmdShow);	// Показать окно (первый аргумент - дискриптор окна, 
+									// второй - Число, определяющее как будет отображаться(скрыто в начале, открыто и т.д.))
 	UpdateWindow(hWnd);
-	if (!d3dInit())	// �������� ������� ������������� direct9
+	if (!d3dInit())	// Вызываем функцию инициализации direct9
 		exit(1);
 
 
-	while (GetMessage(&msg, NULL, 0, 0)) // ���� ���������. GetMessage(): ���������: (��������� �� ����������), 
-										 // (��������� �� ����, � ������� ��������� ���������), (������ ������� ����� (������ 0), ������� ������� ����� (������ 0))
+	while (GetMessage(&msg, NULL, 0, 0)) // Цикл обработки. GetMessage(): аргументы: (Указатель на обработчик), 
+										 // (указатель на окно, в котором ожидается сообщение), (Нижняя граница кодов (ставим 0), Верхняя граница кодов (Ставим 0))
 	{
-		TranslateMessage(&msg);			// ����������� ��������� � ���������� ������
-		DispatchMessage(&msg);			// �������� ��� ������ � ������� ���������
-		DrawFrame();					// ������ ����
+		TranslateMessage(&msg);			// Транслирует сообщение в символьные данные
+		DispatchMessage(&msg);			// Помещаем эти данные в очередь обработки
+		DrawFrame();					// Рисуем кадр
 	}
 
-	DoShutdown();	// �������� direct9
+	DoShutdown();	// Отчистка direct9
 
-	UnregisterClass(wndclass.lpszClassName, hInstance); // ������ ��������� ����
+	UnregisterClass(wndclass.lpszClassName, hInstance); // Чистим структуру окна
 
-	return (msg.wParam);				// ���������� ��������� �������� ����������� ��� ���������� ���������
+	return (msg.wParam);				// Возвращаем последнее значение обработчика при завершении программы
 }
 
-LRESULT CALLBACK fnMessageProcessor(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam) // ������������� �����������
+LRESULT CALLBACK fnMessageProcessor(HWND hWnd, UINT iMsg, WPARAM wParam, LPARAM lParam) // Инициализация обработчика
 {
 	switch (iMsg)
 	{
-	case WM_CREATE:	// �������� ����
+	case WM_CREATE:	// Создание окна
 		return (0);
-	case WM_PAINT: // ��������� ����
+	case WM_PAINT: // Отрисовка окна
 		return (0);
-	case WM_DESTROY: // �������� ����
-		PostQuitMessage(0);	// ������� ���������� ��������� Windows
+	case WM_DESTROY: // Закрытие окна
+		PostQuitMessage(0);	// Функция завершения программы Windows
 		return(0);
 	default:
-		return DefWindowProc(hWnd, iMsg, wParam, lParam); // ���� ��������� ��� � ������, ������������ � ������� WinMain � ������� ���� �������
+		return DefWindowProc(hWnd, iMsg, wParam, lParam); // Если сообщение нет в списке, возвращаемся к функции WinMain с помощью этой функции
 
 	}
 }
